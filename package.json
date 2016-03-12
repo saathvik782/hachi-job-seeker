@@ -9,7 +9,10 @@
   },
   "author": "Saathvik DPKS",
   "license": "ISC",
+  "repository": "https://github.com/saathvik782/hachi-job-seeker.git",
   "dependencies": {
-    "express": "^4.13.4"
+    "express": "^4.13.4",
+    "forever-monitor": "^1.7.0",
+    "node-linkedin": "^0.5.3"
   }
 }
