@@ -1,10 +1,12 @@
 var kue = require('kue')
   , queue = kue.createQueue();
 
+var numberOfAttempts = 3;
+
 //ElasticSearch stuff
 var elasticsearch = require('elasticsearch');
 var elasticClient = new elasticsearch.Client({ host: process.env.ELASTIC_HOST});
-elasticsearch.ping({
+elasticClient.ping({
   // ping usually has a 3000ms timeout 
   requestTimeout: Infinity,
   
@@ -25,13 +27,41 @@ elasticsearch.ping({
             'https://www.googleapis.com/auth/calendar'
             ];
         //var scopes = 'https://www.googleapis.com/auth/plus.me';
-        
+        var job = queue.create('discover tokens',{
+        }).on('complete',function(result){
+            if(result.isId){
+                elasticClient.update({
+                    index: 'authtokens',
+                    type: 'googlePlus',
+                    id: result.id,
+                    body: {
+                        doc: {
+                            'state': 'processing'
+                        }
+                    }
+                });
+            }
+        }).on('failed',function(error){
+            if(error.isId){
+                elasticClient.update({
+                    index: 'authtokens',
+                    type: 'googlePlus',
+                    id: error.id,
+                    body: {
+                        doc: {
+                            'state': 'processing'
+                        }
+                    }
+                });
+            }
+        }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
+
         
         queue.on('job enqueue', function(id, type){
           console.log( 'Job %s got queued of type %s', id, type );
-        
         }).on('job complete', function(id, result){
-            console.log( 'Job '+id+' got completed result is '+result);
+            //console.log( 'Job '+id+' got completed result is '+result);
+            console.log( 'Job '+id+' got completed ');
             kue.Job.get(id, function(err, job){
                 if (err) return;
                 job.remove(function(err){
@@ -42,27 +72,98 @@ elasticsearch.ping({
         }).on('job progress',function(id,progress){
             console.log('Job '+id+' is at '+progress);
         });
+
+        //Main process that dicovers tokens
+        queue.process('discover tokens',1,function(job,done){
+            //Discover if any tokens are yet to be processed
+            elasticClient.search({
+                index: 'authtokens',
+                type: 'googlePlus',
+                body: {
+                    query: { match: { state: "queued"}},
+                    sort: [{ _timestamp: { order: "desc"}}]
+                }
+            },function(error,response){
+                if(error)
+                    return done({err: error,isId:false });
+                if( response.hits.total > 0){
+                    var tokenReponse  = response.hits.hits[0];
+                    elasticClient.update({
+                        index: 'authtokens',
+                        type: 'googlePlus',
+                        id: tokenReponse._id,
+                        body: {
+                            doc: {
+                                'state': 'processing'
+                            }
+                        }
+                    },function(error,response){
+                        if(error)
+                            return done({err: error,isId:true, id: tokenReponse._id});
+                        var job = queue.create('connection process',{
+                            token: tokenReponse._source.token,
+                            id: tokenReponse._id
+                        }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
+                        done(null,{isId:true,id:tokenReponse._id});
+                    });
+                }
+                var job = queue.create('discover tokens',{
+                })
+                .on('complete',function(result){
+                    if(result.isId){
+                        elasticClient.update({
+                            index: 'authtokens',
+                            type: 'googlePlus',
+                            id: result.id,
+                            body: {
+                                doc: {
+                                    'state': 'processing'
+                                }
+                            }
+                        });
+                    }
+                }).on('failed',function(error){
+                    if(error.isId){
+                        elasticClient.update({
+                            index: 'authtokens',
+                            type: 'googlePlus',
+                            id: error.id,
+                            body: {
+                                doc: {
+                                    'state': 'processing'
+                                }
+                            }
+                        });
+                    }
+                }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
+                done(null,{isId:false});
+            });
+        });
     
+        //Process connections for this user
         queue.process('connection process', 20, function(job, done){
             var tokens = job.data.token;
             oauth2Client.setCredentials(tokens);
         
             var plus = google.plus({ version: 'v1', auth:oauth2Client});
             plus.people.list({ userId: 'me', collection:'visible'},function(err,connections){
-                if ( err )
-                    return done(err);
+                if ( err ){
+                    var error = {};
+                    error['id'] = job.id;
+                    return done(error);
+                }
                 
                 // Here you go! Got your connections!
                 connections.items.map(function(obj){            
                     var job = queue.create('connection individual process',{
                         token : tokens,
                         obj : obj 
-                    }).attempts(3).backoff(true).removeOnComplete(true).save();
+                    }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
                 });
-                done(null,"all individuals are queued");
+                done(null,{ id: job.id });
             });
         });
-        
+       
         queue.process('connection individual process',20,function(job,done){
             var tokens = job.data.token;
             var obj = job.data.obj;
