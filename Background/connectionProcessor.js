@@ -26,7 +26,6 @@ elasticsearch.ping({
             ];
         //var scopes = 'https://www.googleapis.com/auth/plus.me';
         
-        var occupationDetails = [];
         
         queue.on('job enqueue', function(id, type){
           console.log( 'Job %s got queued of type %s', id, type );
@@ -43,7 +42,7 @@ elasticsearch.ping({
         }).on('job progress',function(id,progress){
             console.log('Job '+id+' is at '+progress);
         });
-        
+    
         queue.process('connection process', 20, function(job, done){
             var tokens = job.data.token;
             oauth2Client.setCredentials(tokens);
@@ -75,9 +74,18 @@ elasticsearch.ping({
                 plus.people.get({ userId: obj.id, field: fieldsWeAreLookingFor},function(err,resp){
                     if(err)
                         return done(err);
-                    
-                    occupationDetails.push(resp);
-                    done(null,JSON.stringify(resp));
+
+                    //Storing processed data into elasticSearch
+                    elasticClient.index({
+                        index: 'processed_data',
+                        type: 'googlePlus',
+                        body: resp 
+                    },function(error,response){
+                        if(error){
+                            done(error);
+                        }
+                        done(null,JSON.stringify(resp));
+                    });
                 });
             }else{
                 done(null,"not a person");
