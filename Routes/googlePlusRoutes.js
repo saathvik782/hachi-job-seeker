@@ -14,9 +14,9 @@ var scopes = [
     ];
 //var scopes = 'https://www.googleapis.com/auth/plus.me';
 
-//Let's simulate a database for now
-var accessTokens = [];
-var occupationDetails= [];
+//ElasticSearch stuff
+var elasticsearch = require('elasticsearch');
+var elasticClient = new elasticsearch.Client({ host: process.env.ELASTIC_HOST});
 
 router.get('/',function(req,res){
     console.log('trying to generate g+ oauth');
@@ -34,25 +34,21 @@ router.get('/callback',function(req,res){
         if ( err )
             return console.error(err);
 
-        accessTokens.push(tokens);
+        elasticClient.index({
+            index: 'authtokens',
+            type: 'googlePlus',
+            body: {
+                state: 'queued',
+                token: tokens 
+            }
+        },function(error,response){
+            if(error){
+                console.log(error);
+            }
+        });
     
-        return res.redirect('/oauth/googlePlus/connections');
+        return res.redirect('/');
     });
-});
-
-router.get('/connections',function(req,res){
-    //Kue stuff
-    var kue = require('kue')
-    , queue = kue.createQueue();
-    var job = queue.create('connection process',{
-        token : accessTokens[0]
-    }).attempts(3).backoff(true).removeOnComplete(true).save();
-
-    return res.redirect('/');
-});
-
-router.get('/occupationDetails',function(req,res){
-    return res.json(occupationDetails);
 });
 
 module.exports = router;
