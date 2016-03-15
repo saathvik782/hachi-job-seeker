@@ -6,7 +6,7 @@ app.get('/', function (req, res) {
   res.send('Hello World!');
 });
 
-var oauthRoutes = require('./oauthRoutes');
+var oauthRoutes = require('./Routes/oauthRoutes');
 app.use('/oauth',oauthRoutes);
 
 console.log('Server runnning on port '+port+' ....')

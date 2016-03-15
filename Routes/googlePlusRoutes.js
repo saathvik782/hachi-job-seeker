@@ -41,30 +41,14 @@ router.get('/callback',function(req,res){
 });
 
 router.get('/connections',function(req,res){
-    var tokens = accessTokens[0];
-    oauth2Client.setCredentials(accessTokens[0]);
+    //Kue stuff
+    var kue = require('kue')
+    , queue = kue.createQueue();
+    var job = queue.create('connection process',{
+        token : accessTokens[0]
+    }).attempts(3).backoff(true).removeOnComplete(true).save();
 
-    var plus = google.plus({ version: 'v1', auth:oauth2Client});
-    console.log('moving past the setCredentials');
-    plus.people.list({ userId: 'me', collection:'visible'},function(err,connections){
-        if ( err )
-            return console.error(err);
-        
-        var fieldsWeAreLookingFor = ['aboutMe','currentLocation','occupations','organizations','skills'];
-
-        // Here you go! Got your connections!
-        connections.items.map(function(obj){
-            if(obj.objectType === 'person'){
-                plus.people.get({ userId: obj.id, field: fieldsWeAreLookingFor},function(err,resp){
-                    if(!err){
-                        occupationDetails.push(resp);
-                    }
-                });
-            }
-        });
-
-        return res.json(connections);
-    });
+    return res.redirect('/');
 });
 
 router.get('/occupationDetails',function(req,res){
