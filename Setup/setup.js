@@ -78,5 +78,7 @@ elasticClient.ping({
                 });
             });
         });
+
+        kue.app.listen(4000);
     }
 });

@@ -1,6 +1,7 @@
 var kue = require('kue')
   , queue = kue.createQueue();
 
+var Utils = require('../Utils/Utils');
 var numberOfAttempts = 3;
 var delayBetweenApiCalls_s = 5;
 
@@ -29,7 +30,8 @@ elasticClient.ping({
             ];
         //var scopes = 'https://www.googleapis.com/auth/plus.me';
         var job = queue.create('discover tokens',{
-        }).on('complete',function(result){
+        })
+        .on('complete',function(result){
             var res = JSON.parse(result);
             if(res.isId){
                 elasticClient.update({
@@ -57,7 +59,7 @@ elasticClient.ping({
                     }
                 });
             }
-        }).attempts(1).save();
+        }).attempts(1).delay(2 * delayBetweenApiCalls_s * 1000).save();
         
         queue.on('job enqueue', function(id, type){
           console.log( 'Job %s got queued of type %s', id, type );
@@ -185,7 +187,7 @@ elasticClient.ping({
                 elasticClient.index({
                     index: 'processed_data',
                     type: 'googlePlus',
-                    body: resp 
+                    body: Utils.convertGooglePlusResponseToDesiredFormat(resp)
                 },function(error,response){
                     if(error){
                         done(error);
@@ -196,4 +198,5 @@ elasticClient.ping({
         });
     }
 });
+
 kue.app.listen(4000);
