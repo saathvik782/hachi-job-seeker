@@ -2,6 +2,7 @@ var kue = require('kue')
   , queue = kue.createQueue();
 
 var numberOfAttempts = 3;
+var delayBetweenApiCalls_s = 5;
 
 //ElasticSearch stuff
 var elasticsearch = require('elasticsearch');
@@ -28,23 +29,48 @@ elasticClient.ping({
             ];
         //var scopes = 'https://www.googleapis.com/auth/plus.me';
         var job = queue.create('discover tokens',{
-        }).attempts(1).backoff({ type: 'exponential'}).removeOnComplete(true).save();
-
+        }).on('complete',function(result){
+            var res = JSON.parse(result);
+            if(res.isId){
+                elasticClient.update({
+                    index: 'authtokens',
+                    type: 'googlePlus',
+                    id: res.id,
+                    body: {
+                        doc: {
+                            'state': 'done'
+                        }
+                    }
+                });
+            }
+        }).on('failed',function(error){
+            var err = JSON.parse(error);
+            if(err.isId){
+                elasticClient.update({
+                    index: 'authtokens',
+                    type: 'googlePlus',
+                    id: err.id,
+                    body: {
+                        doc: {
+                            'state': 'queued'
+                        }
+                    }
+                });
+            }
+        }).attempts(1).save();
         
         queue.on('job enqueue', function(id, type){
           console.log( 'Job %s got queued of type %s', id, type );
         }).on('job complete', function(id, result){
             //console.log( 'Job '+id+' got completed result is '+result);
             console.log( 'Job '+id+' got completed ');
-            kue.Job.get(id, function(err, job){
-                if (err) return;
-                job.remove(function(err){
-                    if (err) throw err;
-                    console.log('removed completed job #%d', job.id);
-                });
-            });
-        }).on('job progress',function(id,progress){
-            console.log('Job '+id+' is at '+progress);
+            //kue.Job.get(id, function(err, job){
+            //    if (err) return;
+            //    job.remove(function(err){
+            //        if (err) throw err;
+            //        console.log('removed completed job #%d', job.id);
+            //    });
+            //});
         });
 
         //Main process that dicovers tokens
@@ -58,8 +84,40 @@ elasticClient.ping({
                     sort: [{ _timestamp: { order: "desc"}}]
                 }
             },function(error,response){
+                var job = queue.create('discover tokens',{
+                })
+                .on('complete',function(result){
+                    var res = JSON.parse(result);
+                    if(res.isId){
+                        elasticClient.update({
+                            index: 'authtokens',
+                            type: 'googlePlus',
+                            id: res.id,
+                            body: {
+                                doc: {
+                                    'state': 'done'
+                                }
+                            }
+                        });
+                    }
+                }).on('failed',function(error){
+                    var err = JSON.parse(error);
+                    if(err.isId){
+                        elasticClient.update({
+                            index: 'authtokens',
+                            type: 'googlePlus',
+                            id: err.id,
+                            body: {
+                                doc: {
+                                    'state': 'queued'
+                                }
+                            }
+                        });
+                    }
+                }).attempts(1).delay(2 * delayBetweenApiCalls_s * 1000).save();
+
                 if(error)
-                    return done({err: error,isId:false });
+                    return done(JSON.stringify({err: error,isId:false }));
                 if( response.hits.total > 0){
                     var tokenReponse  = response.hits.hits[0];
                     elasticClient.update({
@@ -73,45 +131,16 @@ elasticClient.ping({
                         }
                     },function(error,response){
                         if(error)
-                            return done({err: error,isId:true, id: tokenReponse._id});
+                            return done(JSON.stringify({err: error,isId:true, id: tokenReponse._id}));
                         var job = queue.create('connection process',{
                             token: tokenReponse._source.token,
                             id: tokenReponse._id
-                        }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
-                        //done(null,{isId:true,id:tokenReponse._id});
-                        done(null,"Done perfectly");
+                        }).attempts(numberOfAttempts).save();
+                        done(null,JSON.stringify({isId:true,id:tokenReponse._id}));
                     });
+                }else{
+                    done(JSON.stringify({isId:false}));
                 }
-                var job = queue.create('discover tokens',{
-                })
-                .on('complete',function(result){
-                    if(result.isId){
-                        elasticClient.update({
-                            index: 'authtokens',
-                            type: 'googlePlus',
-                            id: result.id,
-                            body: {
-                                doc: {
-                                    'state': 'processing'
-                                }
-                            }
-                        });
-                    }
-                }).on('failed',function(error){
-                    if(error.isId){
-                        elasticClient.update({
-                            index: 'authtokens',
-                            type: 'googlePlus',
-                            id: error.id,
-                            body: {
-                                doc: {
-                                    'state': 'processing'
-                                }
-                            }
-                        });
-                    }
-                }).attempts(1).delay(10 * 1000).backoff({ type: 'exponential'}).removeOnComplete(true).save();
-                done({isId:false});
             });
         });
     
@@ -130,10 +159,12 @@ elasticClient.ping({
                 
                 // Here you go! Got your connections!
                 connections.items.map(function(obj){            
-                    var job = queue.create('connection individual process',{
-                        token : tokens,
-                        obj : obj 
-                    }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
+                    if(obj.objectType === 'person'){
+                        var job = queue.create('connection individual process',{
+                            token : tokens,
+                            obj : obj 
+                        }).attempts(numberOfAttempts).delay(delayBetweenApiCalls_s * 1000).backoff({type: 'exponential'}).save();
+                    }
                 });
                 done(null,{ id: job.id });
             });
@@ -146,26 +177,22 @@ elasticClient.ping({
         
             var plus = google.plus({ version: 'v1', auth:oauth2Client});
             var fieldsWeAreLookingFor = ['aboutMe','currentLocation','occupations','organizations','skills'];
-            if(obj.objectType === 'person'){
-                plus.people.get({ userId: obj.id, field: fieldsWeAreLookingFor},function(err,resp){
-                    if(err)
-                        return done(err);
+            plus.people.get({ userId: obj.id, field: fieldsWeAreLookingFor},function(err,resp){
+                if(err)
+                    return done(err);
 
-                    //Storing processed data into elasticSearch
-                    elasticClient.index({
-                        index: 'processed_data',
-                        type: 'googlePlus',
-                        body: resp 
-                    },function(error,response){
-                        if(error){
-                            done(error);
-                        }
-                        done(null,JSON.stringify(resp));
-                    });
+                //Storing processed data into elasticSearch
+                elasticClient.index({
+                    index: 'processed_data',
+                    type: 'googlePlus',
+                    body: resp 
+                },function(error,response){
+                    if(error){
+                        done(error);
+                    }
+                    done(null,JSON.stringify(resp));
                 });
-            }else{
-                done(null,"not a person");
-            }
+            });
         });
     }
 });
