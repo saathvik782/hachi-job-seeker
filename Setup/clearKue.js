@@ -19,4 +19,13 @@ queue.inactive( function( err, ids ) {
     });
 });
 
+queue.failed( function( err, ids ) {
+    ids.forEach( function( id ) {
+        kue.Job.get( id, function( err, job ) {
+            // Your application should check if job is a stuck one
+            job.remove();
+        });
+    });
+});
+
 kue.app.listen(4000);

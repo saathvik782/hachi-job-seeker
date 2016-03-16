@@ -28,33 +28,7 @@ elasticClient.ping({
             ];
         //var scopes = 'https://www.googleapis.com/auth/plus.me';
         var job = queue.create('discover tokens',{
-        }).on('complete',function(result){
-            if(result.isId){
-                elasticClient.update({
-                    index: 'authtokens',
-                    type: 'googlePlus',
-                    id: result.id,
-                    body: {
-                        doc: {
-                            'state': 'processing'
-                        }
-                    }
-                });
-            }
-        }).on('failed',function(error){
-            if(error.isId){
-                elasticClient.update({
-                    index: 'authtokens',
-                    type: 'googlePlus',
-                    id: error.id,
-                    body: {
-                        doc: {
-                            'state': 'processing'
-                        }
-                    }
-                });
-            }
-        }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
+        }).attempts(1).backoff({ type: 'exponential'}).removeOnComplete(true).save();
 
         
         queue.on('job enqueue', function(id, type){
@@ -104,7 +78,8 @@ elasticClient.ping({
                             token: tokenReponse._source.token,
                             id: tokenReponse._id
                         }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
-                        done(null,{isId:true,id:tokenReponse._id});
+                        //done(null,{isId:true,id:tokenReponse._id});
+                        done(null,"Done perfectly");
                     });
                 }
                 var job = queue.create('discover tokens',{
@@ -135,8 +110,8 @@ elasticClient.ping({
                             }
                         });
                     }
-                }).attempts(numberOfAttempts).backoff(true).removeOnComplete(true).save();
-                done(null,{isId:false});
+                }).attempts(1).delay(10 * 1000).backoff({ type: 'exponential'}).removeOnComplete(true).save();
+                done({isId:false});
             });
         });
     
