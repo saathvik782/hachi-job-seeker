@@ -1,3 +1,5 @@
+var extractor = require('unfluff');
+
 function convertGooglePlusResponseToDesiredFormat(obj){
     var convertedData = {};
     convertedData['title'] = '';
@@ -12,11 +14,19 @@ function convertGooglePlusResponseToDesiredFormat(obj){
         convertedData['skills'] = addwithIndentation(convertedData['skills'],obj['occupation']);
     }
     
-    if(obj['skills'] !== undefined) convertedData['skills'] = addwithIndentation(convertedData['skills'],obj['skills']);
+    if(obj['skills'] !== undefined){
+        convertedData['skills'] = addwithIndentation(convertedData['skills'],obj['skills']);
+    }
 
-    if(obj['displayName'] !== undefined) convertedData['displayName'] = obj['displayName'];
+    if(obj['displayName'] !== undefined){
+        convertedData['displayName'] = obj['displayName'];
+    }
 
-    if(obj['aboutMe'] !== undefined) convertedData['description'] = obj['aboutMe'];
+    if(obj['aboutMe'] !== undefined){
+        //obj['aboutMe'] = extractor(obj['aboutMe']).text;
+
+        convertedData['description'] = obj['aboutMe'];
+    }
     
     if(obj['organizations'] !== undefined){
         var organizations = obj['organizations'];

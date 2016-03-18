@@ -15,6 +15,7 @@
     "express": "^4.13.4",
     "googleapis": "^2.1.7",
     "kue": "^0.10.5",
-    "node-linkedin": "^0.5.3"
+    "node-linkedin": "^0.5.3",
+    "unfluff": "^1.0.0"
   }
 }

@@ -30,43 +30,40 @@ router.get('/', function(req, res) {
             return res.status(401).json({ error: 'parameters are wrong' })
 
         var query = {
-            "from" : 0, "size" : 10,
-            "min_score": 0.2,
-            "query" : {
-              "bool" : {
-                  "should":[
-                      { 
-                          "match": {
-                              "skills":{
-                                  "query": job.skills,
-                                  "boost": 3
-                              }
-                          } 
-                      },
-                      { 
-                          "match": {
-                              "title":{
-                                  "query": job.title,
-                                  "boost": 2
-                              }
-                          } 
-                      },
-                      { 
-                          "match": {
-                              "description":{
-                                  "query": job.description,
-                                  "boost": 1
-                              }
-                          } 
-                      }
-                  ]
-              }
+            "from": 0,
+            "size": 10,
+            "query": {
+                "or": [
+                {
+                    "match": {
+                        "skills": {
+                            "query": job.skills,
+                            "boost": 4
+                        }
+                    }
+                },
+                {
+                    "match": {
+                        "title": {
+                            "query": job.title,
+                            "boost": 2
+                        }
+                    }
+                },
+                {
+                    "match": {
+                        "description": {
+                            "query": job.description,
+                            "boost": 0.5
+                        }
+                    }
+                }
+                ]
             },
-            "sort" : [
-              "_score"
+            "sort": [
+                "_score"
             ]
         };
-        console.log(JSON.stringify(query));
     
         elasticClient.search({
             index: 'processed_data',
