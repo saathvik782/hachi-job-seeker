@@ -1,8 +1,7 @@
 var express = require('express');
 var router = express.Router();
 
-//LinkedIn
-var linkedInRoutes = require('./requests');
+var jobRequestRoutes = require('./jobRequestRoutes');
 router.use('/jobRequest',jobRequestRoutes);
 
 module.exports = router;

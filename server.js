@@ -9,5 +9,8 @@ app.get('/', function (req, res) {
 var oauthRoutes = require('./Routes/oauthRoutes');
 app.use('/oauth',oauthRoutes);
 
+var requestRoutes = require('./Requests/requestRoutes')
+app.use('/requests',requestRoutes);
+
 console.log('Server runnning on port '+port+' ....')
 app.listen(port);
