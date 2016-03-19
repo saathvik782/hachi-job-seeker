@@ -52,7 +52,7 @@ The code for this is in the file [googlePlusRoutes](Routes/googlePlusRoutes.js).
 ####Background processing
 Once an user is signed into the application, The background processes use the users credentials to parse through list of people they are connected to (Which in case of Google+ are people in their circles).
 
-# ![pageres](media/backgroundProcessing.png)
+# ![pageres](media/back.png)
 
 The code for this is in the file [googlePlusConnectionProcessor](Background/googlePlusConnectionProcessor.js).
 ####Dataprocessing and storage
