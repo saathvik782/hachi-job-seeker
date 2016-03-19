@@ -4,14 +4,16 @@ var port = 3000;
 
 var env = process.env.NODE_ENV || 'default';
 
+var path = require('path');
 // configure express app
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'hbs');
-app.use(favicon(__dirname + '/public/favicon.ico'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', function (req, res) {
-  res.send('Hello World!');
+    res.render('partials/index',{
+        js: 'index.js'
+    });
 });
 
 // configure routes

@@ -16,16 +16,7 @@ router.get('/', function(req, res) {
         
         //req,res
         //analyze requests and search for a queries
-        //console.log(req);
-        //var job = req.query.job;
-        var input = {
-            "job" : {
-                "skills" : "RoR, Django, Web Design, javascript",
-        "title" : "full stack developer",
-        "description" : "we need a passionate web developer with relevant skills"
-            }
-        };
-        var job = input.job;
+        var job = req.query.job;
         if(job === undefined)
             return res.status(401).json({ error: 'parameters are wrong' })
 
