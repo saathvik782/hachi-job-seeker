@@ -87,5 +87,5 @@ The ranking is done based on how a candidate suits the specified requirements. T
 1.  Background parsing and conversion has to be improved to store more relevant data.
 2.  Since google+ other api's have a requestso per second limit, The background processes need to be tuned for that.
 3.  Caching can be implemented so that a user profile is not parsed multiple times, As of now redundancy in storage is eliminated using Elasticsearch features.
-4.  Failures in parsing due to api call overload are not being handled, once a request fails the corresponding user data is lost. This can be done by parsing user connections again and again untill all data is obtained.
+4.  Failures in parsing due to api call overload are not being handled, once a request fails the corresponding connection data is lost. This can be done by parsing user connections again and again untill all data is obtained.
 5.  Changes in user data has to be accounted for, this can be done by implementing a caching mechanism using etags.
