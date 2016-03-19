@@ -13,9 +13,10 @@ Assignment application for hachi interview
 - [Data retreival](#data-retreival)
     - [GET request](#get-request)
     - [Ranking](#ranking)
+- [Improvements](#improvements)
 
 ##Introduction
-This an application completely written in nodejs, The background jobs are create using [Kue](https://github.com/Automattic/kue). It uses [Elasticsearch](https://www.elastic.co/products/elasticsearch) as a datastore for fast retreivel and indexing.
+This an application completely written in nodejs, The background jobs are created using [Kue](https://github.com/Automattic/kue). It uses [Elasticsearch](https://www.elastic.co/products/elasticsearch) as a datastore for fast retreivel and indexing.
 
 The application suggests candidates for a job based on the reqruirements by looking through the a candidate list that is preprocessed and generate using background jobs. 
 
@@ -82,5 +83,9 @@ The ranking is done based on how a candidate suits the specified requirements. T
 
 # ![pageres](media/results.png)
 
-
-
+##Improvements
+1.  Background parsing and conversion has to be improved to store more relevant data.
+2.  Since google+ other api's have a requestso per second limit, The background processes need to be tuned for that.
+3.  Caching can be implemented so that a user profile is not parsed multiple times, As of now redundancy in storage is eliminated using Elasticsearch features.
+4.  Failures in parsing due to api call overload are not being handled, once a request fails the corresponding user data is lost. This can be done by parsing user connections again and again untill all data is obtained.
+5.  Changes in user data has to be accounted for, this can be done by implementing a caching mechanism using etags.
